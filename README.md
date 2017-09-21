@@ -20,7 +20,7 @@ A great analogy to ACL's in JavaScript would be form validation in JavaScript.  
 
 ##### Example Tampering Scenario
 
-The current user has a role of "guest".  A guest is not able to "create_users".  However, this sneaky guest is clever enough to tamper with the system and give themselves that privilege. So, now that guest is at the "Create Users" page, and submits the form. The form data is sent the the server and the user is greeted with an "Access Denied: Unauthorized" message, because the server also checked to make sure that the user had the correct permissions.
+The current user has a role of "guest".  A guest is not able to "create_users".  However, this sneaky guest is clever enough to tamper with the system and give themselves that privilege. So, now that guest is at the "Create Users" page, and submits the form. The form data is sent to the server and the user is greeted with an "Access Denied: Unauthorized" message, because the server also checked to make sure that the user had the correct permissions.
 
 Any sensitive data or actions should integrate a server check like this example.
 
@@ -90,7 +90,7 @@ app.config(['$routeProvider', function ($routeProvider) {
 
 app.run(['$rootScope', '$location', function ($rootScope, $location) {
   // If the route change failed due to our "Unauthorized" error, redirect them
-  $rootScope.$on('$routeChangeError', function(current, previous, rejection){
+  $rootScope.$on('$routeChangeError', function(event, current, previous, rejection){
     if(rejection === 'Unauthorized'){
       $location.path('/');
     }
@@ -203,6 +203,10 @@ app.config(['AclServiceProvider', function (AclServiceProvider) {
 }]);
 ```
 
+#### `AclService.flushStorage()`
+
+Remove all data from web storage.
+
 #### `AclService.attachRole(role)`
 
 Attach a role to the current user. A user can have multiple roles.
@@ -237,13 +241,27 @@ Get all of the roles attached to the user
 
 #### `AclService.hasRole(role)`
 
-Check if the current user has role attached
+Check if the current user has role(s) attached. If an array is given, all roles must be attached. To check if any roles in an array are attached see the `hasAnyRole()` method.
 
 ###### Parameters
 
 | Param | Type | Example | Details |
 | ----- | ---- | ------- | ------- |
-| `role` | string | `"admin"` | The role label |
+| `role` | string/array | `"admin"` | The role label, or an array of role labels |
+
+###### Returns
+
+**boolean**
+
+#### `AclService.hasAnyRole(roles)`
+
+Check if the current user has any of the given roles attached. To check if all roles in an array are attached see the `hasRole()` method.
+
+###### Parameters
+
+| Param | Type | Example | Details |
+| ----- | ---- | ------- | ------- |
+| `roles` | array | `["admin","user"]` | Array of role labels |
 
 ###### Returns
 
@@ -304,6 +322,26 @@ AclService.can('ban_users'); // returns true
 AclService.can('create_users'); // returns false
 ```
 
+### Directives
+
+#### `aclShow`
+
+Show and element if truthy, otherwise hide it. 
+
+###### Example Usage
+
+Only user's that have the `edit_posts` permission would see the button.
+
+```html
+<button acl-show="edit_posts">Edit Post</button>
+```
+
+This is essentially a shortcut instead of having to type out an `ngShow` like this...
+
+```html
+<button ng-show="$ctrl.AclService.can('edit_posts')">Edit Post</button>
+```
+
 ---
 
 ## License
@@ -311,7 +349,7 @@ AclService.can('create_users'); // returns false
 The MIT License
 
 Angular ACL
-Copyright (c) 2015 Mike McLin
+Copyright (c) 2016 Mike McLin
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

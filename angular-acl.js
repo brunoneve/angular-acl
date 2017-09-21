@@ -1,5 +1,7 @@
 'use strict';
 
+var NG_HIDE_CLASS = 'ng-hide';
+
 angular.module('mm.acl', []);
 
 angular.module('mm.acl').provider('AclService', [
@@ -69,11 +71,32 @@ angular.module('mm.acl').provider('AclService', [
       }
     };
 
+    var unset = function () {
+      switch (config.storage) {
+        case 'sessionStorage':
+          unsetFromStorage('sessionStorage');
+          break;
+        case 'localStorage':
+          unsetFromStorage('localStorage');
+          break;
+        default:
+          // Don't save
+          return;
+      }
+    };
+
     /**
      * Persist data to web storage
      */
     var saveToStorage = function (storagetype) {
       window[storagetype].setItem(config.storageKey, JSON.stringify(data));
+    };
+
+    /**
+     * Unset data from web storage
+     */
+    var unsetFromStorage = function (storagetype) {
+      window[storagetype].removeItem(config.storageKey);
     };
 
     /**
@@ -117,6 +140,13 @@ angular.module('mm.acl').provider('AclService', [
     }
 
     /**
+     * Remove data from web storage
+     */
+    AclService.flushStorage = function () {
+      unset();
+    };
+
+    /**
      * Attach a role to the current user
      *
      * @param role
@@ -150,13 +180,34 @@ angular.module('mm.acl').provider('AclService', [
     };
 
     /**
-     * Check if the current user has role attached
+     * Check if the current user has role(s) attached
      *
      * @param role
      * @returns {boolean}
      */
     AclService.hasRole = function (role) {
-      return (data.roles.indexOf(role) > -1);
+      var roles = angular.isArray(role) ? role : [role];
+      for (var l = roles.length; l--;) {
+        if (data.roles.indexOf(roles[l]) === -1) {
+          return false;
+        }
+      }
+      return !!roles.length;
+    };
+
+    /**
+     * Check if the current user any of the given roles
+     *
+     * @param roles
+     * @returns {boolean}
+     */
+    AclService.hasAnyRole = function (roles) {
+      for (var l = roles.length; l--;) {
+        if (AclService.hasRole(roles[l])) {
+          return true;
+        }
+      }
+      return false;
     };
 
     /**
@@ -212,7 +263,7 @@ angular.module('mm.acl').provider('AclService', [
     AclService.can = function (ability) {
       var role, abilities;
       // Loop through roles
-        var l = data.roles.length;
+      var l = data.roles.length;
       for (; l--;) {
         // Grab the the current role
         role = data.roles[l];
@@ -243,7 +294,7 @@ angular.module('mm.acl').provider('AclService', [
         role = data.roles[l];
         roleAbilities = getRoleAbilities(role);
 
-        for (; j--;){
+        for (; j--;) {
           if (roleAbilities.indexOf(abilities[j]) > -1) {
             // Ability is in role abilities
             return true;
@@ -265,4 +316,24 @@ angular.module('mm.acl').provider('AclService', [
     };
 
   }
-]);
+]).directive('aclShow', function (AclService) {
+  return {
+    restrict: 'A',
+    link: function (scope, element, attrs) {
+      scope.$watch(attrs.aclShow, function aclShowWatchAction(value) {
+        var permissions, can;
+        if (!value) {
+          element.addClass(NG_HIDE_CLASS);
+          return;
+        }
+        permissions = value.split(',');
+        can = AclService.canAny(permissions);
+        if (!can) {
+          element.addClass(NG_HIDE_CLASS);
+        } else {
+          element.removeClass(NG_HIDE_CLASS);
+        }
+      });
+    }
+  };
+});
